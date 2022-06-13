@@ -43,5 +43,5 @@ steps:
   entrypoint: 'sh'
   args:
   - '-c'
-  - 'gcloud beta terraform vet terraform.json --policy-library=../../../policy-library/'
+  - 'gcloud beta terraform vet terraform.json --policy-library=../../policy-library/'
 # [END tf-vet]    
