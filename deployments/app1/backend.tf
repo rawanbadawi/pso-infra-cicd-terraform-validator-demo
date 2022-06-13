@@ -1,6 +1,6 @@
 terraform {
   backend "gcs" {
-    bucket  = "TFSTATE_BUCKET"
+    bucket  = "rbadawi-onprem"
     prefix  = "tf-demo/app1"
   }
 }
