@@ -38,7 +38,7 @@ steps:
 
 # [START tf-vet]
 - id: 'tf validate'
-  name: 'gcr.io/$PROJECT_ID/gcloud-sdk-w-terraform:slim'
+  name: 'us-central1-docker.pkg.dev/$PROJECT_ID/terraform-vet/terraform-vet:latest'
   dir: deployments/app1
   entrypoint: 'sh'
   args:

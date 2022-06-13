@@ -1,10 +1,10 @@
 ---
 steps:
-- name: hashicorp/terraform
+- name: hashicorp/terraform:1.0.0
   dir: deployments/app1
   args:
   - init
-- name: hashicorp/terraform
+- name: hashicorp/terraform:1.0.0
   dir: deployments/app1
   args:
   - apply
