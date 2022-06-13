@@ -13,10 +13,9 @@
 # limitations under the License.
 #
 apiVersion: constraints.gatekeeper.sh/v1alpha1
-kind: GCPDNSSECEnabledConstraintV1
+kind: GCPDNSSECConstraintV1
 metadata:
   name: require_dnssec
 spec:
   severity: high
-    
   parameters: {}

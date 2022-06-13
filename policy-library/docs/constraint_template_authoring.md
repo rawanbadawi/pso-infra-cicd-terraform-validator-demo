@@ -27,9 +27,6 @@ The template name appears in three places in a template YAML file:
 *   CRD kind (under "spec" > "crd" > "spec" > "names" > "kind"): Camel case. It
     has the format of "GCP{resource}{feature}Constraint{version}" (example:
     "GCPStorageLoggingConstraintV1").
-*   CRD plural name (under "spec" > "crd" > "spec" > "names" > "plural"): Same
-    as CRD kind but in all lower case with the word "constraints" replacing
-    "constraint" (example: "gcpstorageloggingconstraintsv1")
 
 Wherever possible, follow [gcloud](https://cloud.google.com/sdk/gcloud/) group
 names for resource naming. For example, use "compute" instead of "gce", "sql"
@@ -95,9 +92,9 @@ assigned to the VM.
       "parent": "//cloudresourcemanager.googleapis.com/projects/68478495408",
       "data": {
         "name": "vm-external-ip",
-        "networkInterface": [
+        "networkInterfaces": [
           {
-            "accessConfig": [
+            "accessConfigs": [
               {
                 "externalIp": "35.196.151.107",
                 "name": "external-nat",
@@ -127,67 +124,60 @@ using Rego and Open Policy Agent.
 
 To store a rule for your constraint template, create a new Rego file (for
 example, <code><em>vm_external_ip.rego</em></code>). This file should include a
-single <code><em>deny</em></code> rule which returns violations by evaluating
-whether a given <code><em>input.asset</em></code> violates the constraint
-provided in <code><em>input.constraint</em></code>.
+single <code><em>violation</em></code> rule which returns violations by evaluating
+whether a given <code><em>input.review</em></code> (an asset) violates the
+<code><em>input.parameters</em></code> defined in a constraint.
 
 As you develop the Rego rule, keep these principles in mind:
 
 *   Logic can be externalized into additional rules and functions which should
-    be defined below the deny rule in a utilities section.
+    be defined below the <code><em>violation</em></code> rule in a utilities section.
 *   If your rule only applies to particular resource types, you should check
-    that the given <code><em>input.asset</em></code> is of the required type
-    early on. (for example, <code><em>input.asset.asset_type ==
+    that the given <code><em>input.review</em></code> is of the required type
+    early on. (for example, <code><em>input.review.asset_type ==
     "google.compute.Instance"</em></code>).
 *   If your rule requires input parameters, they will be present under
-    <code>input.constraint</code>. You can retrieve it using the library
-    function <code>get_constraint_params</code> in the
-    <code>data.validator.gcp.lib</code> package.
+    <code>input.parameters</code>.
 *   Comments should be included for any complicated logic and all helper
     functions and rules should have a comment explaining their intent.
 *   Equality comparison should be done using <code><em>==</em></code> to
     differentiate it from assignment.
 *   A violation is generated only when the rule body evaluates to true. In other
     words, you should look for the negative condition.
-*   There are helpful functions available in the GCP library which you can
-    import into your rule. For example, <code><em>import data.validator.gcp.lib
-    as lib</em></code>.
 
 For example, this rule checks whether a VM with external IP address should be
-exempted (whitelist) or treated as a violation (blacklist):
+exempted (allowlist) or treated as a violation (denylist):
 
-```
+```rego
 package validator.gcp.GCPExternalIpAccessConstraintV1
-import data.validator.gcp.lib as lib
 
-deny[{
+violation[{
         "msg": message,
         "details": metadata,
 }] {
-        constraint := input.constraint
-        lib.get_constraint_params(constraint, params)
-        asset := input.asset
+        parameters := input.parameters
+        asset := input.review
         asset.asset_type == "google.compute.Instance"
         # Find network access config block w/ external IP
         instance := asset.resource.data
         access_config := instance.networkInterface[_].accessConfig
         external_ip := access_config[_].externalIp
-        # Check if instance is in blacklist/whitelist
-        target_instances := params.instances
+        # Check if instance is in allowlist/denylist
+        target_instances := parameters.instances
         matches := {asset.name} & cast_set(target_instances)
-        target_instance_match_count(params.mode, desired_count)
+        target_instance_match_count(parameters.mode, desired_count)
         count(matches) == desired_count
         message := sprintf("%v is not allowed to have an external IP.", [asset.name])
         metadata := {"external_ip": external_ip}
 }
 
 # Determine the overlap between instances under test and constraint
-# By default (whitelist), we violate if there isn't overlap
+# By default (allowlist), we violate if there isn't overlap
 target_instance_match_count(mode) = 0 {
-        mode != "blacklist"
+        mode != "denylist"
 }
 target_instance_match_count(mode) = 1 {
-        mode == "blacklist"
+        mode == "denylist"
 }
 ```
 
@@ -196,24 +186,24 @@ target_instance_match_count(mode) = 1 {
 To test your rule, create fixtures of the expected resources and constraints
 leveraging your rule. To implement your test cases, gather resource fixtures
 from CAI and place them in a
-<code><em>test/fixtures/resources/<resource_type>/data.json</em></code> file.
+<code><em>test/fixtures/resources/&lt;resource_type&gt;/data.json</em></code> file.
 You can also write a constraint fixture using your constraint template and place
 it in
-<code><em>test/fixtures/constraints/<constraint_name/data.yaml</em></code>.
+<code><em>test/fixtures/constraints/&lt;constraint_name&gt;/data.yaml</em></code>.
 
 For example, here is a sample constraint used for external IP rule:
 
 ```
-apiVersion: constraints.gatekeeper.sh/v1alpha1
+apiVersion: constraints.gatekeeper.sh/v1beta1
 kind: GCPExternalIpAccessConstraintV1
 metadata:
-  name: forbid-external-ip-whitelist
+  name: forbid-external-ip-allowlist
 spec:
   severity: high
   match:
-    target: ["organization/*"]
+    target: ["organizations/**"]
   parameters:
-    mode: "whitelist"
+    mode: "allowlist"
     instances:
       - //compute.googleapis.com/projects/test-project/zones/us-east1-b/instances/vm-external-ip
 ```
@@ -242,28 +232,28 @@ For example, here are the tests for the above external IP constraint:
 package validator.gcp.GCPExternalIpAccessConstraintV1
 
 import data.test.fixtures.assets.compute_instances as fixture_instances
-import data.test.fixtures.constraints as fixture_constraints
+import data.test.fixtures.parameters as fixture_parameters
 
 # Find all violations on our test cases
 find_violations[violation] {
         instance := data.instances[_]
-        constraint := data.test_constraints[_]
-        issues := deny with input.asset as instance
-                 with input.constraint as constraint
+        parameters := data.test_parameters[_]
+        issues := violation with input.review as instance
+                 with input.parameters as parameters
         total_issues := count(issues)
         violation := issues[_]
 }
 
-whitelist_violations[violation] {
-        constraints := [fixture_constraints.forbid_external_ip_whitelist]
+allowlist_violations[violation] {
+        parameters := [fixture_parameters.forbid_external_ip_allowlist]
         found_violations := find_violations with data.instances as fixture_instances
-                 with data.test_constraints as constraints
+                 with data.test_parameters as parameters
         violation := found_violations[_]
 }
 
-# Confirm only a single violation was found (whitelist constraint)
-test_external_whitelist_ip_violates_one {
-        found_violations := whitelist_violations
+# Confirm only a single violation was found (allowlist constraint)
+test_external_allowlist_ip_violates_one {
+        found_violations := allowlist_violations
         count(found_violations) = 1
         violation := found_violations[_]
         resource_name := "//compute.googleapis.com/projects/test-project/zones/us-east1-b/instances/vm-external-ip"
@@ -284,10 +274,10 @@ This example shows the external IP constraint template, with the italicized
 portions changing for your template:
 
 ```
-apiVersion: templates.gatekeeper.sh/v1alpha1
+apiVersion: templates.gatekeeper.sh/v1beta1
 kind: ConstraintTemplate
 metadata:
-  name: gcp-external-ip-access
+  name: gcpexternalipaccessconstraintv1
   annotations:
     # Example of tying a template to a CIS benchmark
     benchmark: CIS11_5.03
@@ -296,18 +286,17 @@ spec:
     spec:
       names:
         kind: GCPExternalIpAccessConstraintV1
-        plural: gcpexternalipaccessconstraintsv1
       validation:
         openAPIV3Schema:
           properties:
             mode:
               type: string
-              enum: [blacklist, whitelist]
+              enum: [denylist, allowlist]
             instances:
               type: array
               items: string
   targets:
-   validation.gcp.forsetisecurity.org:
+    - target: validation.gcp.forsetisecurity.org
       rego: |
             #INLINE("validator/vm_external_ip.rego")
             #ENDINLINE
@@ -316,6 +305,50 @@ spec:
 The Rego rule is supposed to be inlined in the YAML file. To do that, run `make
 build`. That will format the rego rules and inline them in the YAML files under
 the `#INLINE` directive.
+
+### Updating from v1alpha1 templates
+
+To upgrade old templates from v1alpha1 to v1beta1, make the following changes:
+
+1. Update the constraint template rego:
+   - Rename the `deny` rule to `violation`
+   - Replace `input.asset` with `input.review`
+   - Replace `input.constraint.spec.parameters` (or `lib.get_constraint_params(constraint, params)`) with `input.parameters`. For example:
+     ```rego
+     # Old
+     import data.validator.gcp.lib as lib
+     constraint := input.constraint
+     lib.get_constraint_params(constraint, params)
+
+     # New - no lib required
+     params := input.parameters
+     ```
+   - If you were using `lib.get_default`, you can now use the built-in `object.get` instead
+     ```rego
+     # Old
+     import data.validator.gcp.lib as lib
+     destination := lib.get_default(bucket, "logging", "default")
+
+     # New - no lib required
+     destination := object.get(bucket, "logging", "default")
+     ```
+2. Update constraint template yaml:
+   - Change spec.targets to take a list of objects with `target` and `rego` keys
+     ```yaml
+     # Old
+     spec:
+      targets:
+        validation.gcp.forsetisecurity.org:
+          rego: # rego goes here
+
+     # New
+     spec:
+      targets:
+        - target: validation.gcp.forsetisecurity.org
+          rego: # rego goes here
+     ```
+   - Ensure that `metadata.name` contains the lowercased content of `spec.crd.spec.names.kind`
+3. Update `apiVersion` for constraints and constraint templates to be `v1beta1` instead of `v1alpha1`
 
 ### Contact Info
 

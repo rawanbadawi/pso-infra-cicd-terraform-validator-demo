@@ -4,6 +4,7 @@
 # Used to retrieve project_number later
 data "google_project" "project" {
   provider = google-beta
+  project_id = var.project_id
 }
 
 # Enable Cloud Run API

@@ -8,15 +8,15 @@ This repository shows how to use terraform validator when deploying infrastructu
 * The following apis enabled in the GCP project: cloudbuild, containerregistry, and artifactregistry
 
 ```bash
-gcloud services enable cloudbuild.googleapis.com \ 
-containerregistry.googleapis.com \
-storage-component.googleapis.com \
-artifactregistry.googleapis.com \
+gcloud services enable cloudbuild.googleapis.com containerregistry.googleapis.com artifactregistry.googleapis.com 
 ```
 
 * fork the following repository: https://github.com/rawanbadawi/pso-infra-cicd-terraform-validator-demo
 
-* Clone your repo in cloud shell or locally:
+* Clone your repo in cloud shell or locally then change directory into the repo:
+```
+cd pso-infra-cicd-terraform-validator-demo
+```
 
 * Install the google cloudbuild github app: https://cloud.google.com/build/docs/automating-builds/build-repos-from-github#installing_gcb_app
 
@@ -52,7 +52,7 @@ gcloud artifacts repositories create terraform-vet --repository-format=docker \
 ```bash
 cd terraform-vet/
 gcloud builds submit --region=us-central1 --tag us-central1-docker.pkg.dev/<project-id>/terraform-vet/terraform-vet .
-
+cd ..
 ```
 * create a gcs bucket to host the terraform state file replace <bucket-name> with a unique bucket name:
 
@@ -68,6 +68,9 @@ gsutil mb -c standard -l us-central1 gs://<bucket-name>
 git checkout -b test-iac
 ```
 1. Edit `TFSTATE_BUCKET` in `deployments/app1/backend.tf` file to the bucket name created above
+``` bash
+sed -i 's/TFSTATE_BUCKET/rbadawi-onprem/g' deployments/app1/backend.tf
+```
 1. Change the `image` value to the container image you wish to deploy to in `deployments/app1/terraform.tfvars` 
 1. Commit the changes and create a pull request
 ``` bash

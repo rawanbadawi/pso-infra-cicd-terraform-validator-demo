@@ -1,8 +1,23 @@
-# Policies
+# Config Validator Policy Library
+## [Bundles](./docs/index.md#policy-bundles) | [Templates](./docs/index.md#available-templates) | [Sample Constraints](./docs/index.md#sample-constraints)
 
 This repo contains a library of constraint templates and sample constraints.
 
 For information on setting up Config Validator to secure your environment, see the [User Guide](./docs/user_guide.md).
+
+## Initializing a policy library
+You can easily set up a new (local) policy library by downloading a [bundle](./docs/index.md#policy-bundles) using [kpt](https://kpt.dev/).
+
+Download the full policy library and install the [Forseti bundle](./docs/bundles/forseti-security.md):
+```
+export BUNDLE=forseti-security
+kpt pkg get https://github.com/GoogleCloudPlatform/policy-library.git ./policy-library
+kpt fn source policy-library/samples/ | \
+  kpt fn eval - --image gcr.io/config-validator/get-policy-bundle:latest -- bundle=$BUNDLE | \
+  kpt fn sink policy-library/policies/constraints/$BUNDLE
+```
+
+Once you have initialized a library, you might want to save it to [git](./docs/user_guide.md#https://github.com/GoogleCloudPlatform/policy-library/blob/master/docs/user_guide.md#get-started-with-the-policy-library-repository).
 
 ## Developing a Constraint
 
@@ -12,6 +27,7 @@ using the [Constraint Template Authoring Guide](./docs/constraint_template_autho
 ### Available Commands
 
 ```
+make audit                          Run audit against real CAI dump data
 make build                          Format and build
 make build_templates                Inline Rego rules into constraint templates
 make debug                          Show debugging output from OPA
@@ -41,3 +57,31 @@ Replaced:
 #contents of my_rule.rego
 #ENDINLINE
 ```
+
+### Linting Policies
+Config Validator provides a policy linter.  You can invoke it as:
+
+```
+go get github.com/GoogleCloudPlatform/config-validator/cmd/policy-tool
+policy-tool --policies ./policies --policies ./samples --libs ./lib
+```
+
+### Local CI
+You can run the cloudbuild CI locally as follows:
+
+```
+gcloud components install cloud-build-local
+cloud-build-local --config ./cloudbuild.yaml --dryrun=false .
+```
+
+### Updating CI Images
+
+You can update the CI images to add new versions of rego/opa as they are released.
+```
+# Rebuild all images.
+make -j ci-images
+
+# Rebuild a single image
+make ci-image-v1.16.0
+```
+

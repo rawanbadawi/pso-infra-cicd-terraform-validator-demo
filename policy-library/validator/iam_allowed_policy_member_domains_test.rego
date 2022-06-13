@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-package templates.gcp.GCPIAMAllowedPolicyMemberDomainsConstraintV1
+package templates.gcp.GCPIAMAllowedPolicyMemberDomainsConstraintV2
 
 import data.test.fixtures.iam_allowed_policy_member_domains.assets as fixture_assets
 import data.test.fixtures.iam_allowed_policy_member_domains.constraints as fixture_constraints
@@ -87,4 +87,24 @@ test_reject_project_reference {
 	found_violations := violations_project_reference
 	count(found_violations) = 1
 	found_violations[_].details.member == "projectViewer:my-project"
+}
+
+violations_reject_sub_domains[violation] {
+	constraints := [fixture_constraints.iam_allowed_policy_member_reject_sub_domains]
+
+	found_violations := find_violations with data.instances as fixture_assets
+		 with data.test_constraints as constraints
+
+	violation := found_violations[_]
+}
+
+test_reject_sub_domains {
+	found_violations := violations_reject_sub_domains
+	count(found_violations) = 3
+	projects_1 := [v | v = found_violations[_]; contains(v.msg, "//cloudresourcemanager.googleapis.com/projects/12345")]
+	count(projects_1) == 2
+	projects_2 := [v | v = found_violations[_]; contains(v.msg, "//cloudresourcemanager.googleapis.com/projects/186783260185")]
+	count(projects_2) == 1
+	members := {m | m = found_violations[_].details.member}
+	members == {"user:bad@sub.google.com", "serviceAccount:service-186783260185@dataflow-service-producer-prod.iam.gserviceaccount.com", "serviceAccount:service-12345@dataflow-service-producer-prod.iam.gserviceaccount.com"}
 }

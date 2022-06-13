@@ -1,5 +1,5 @@
 #
-# Copyright 2019 Google LLC
+# Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-package templates.gcp.GCPIAMAllowedBindingsConstraintV1
+package templates.gcp.GCPIAMAllowedBindingsConstraintV3
 
 import data.validator.gcp.lib as lib
 
@@ -26,15 +26,21 @@ deny[{
 	lib.get_constraint_params(constraint, params)
 	asset := input.asset
 
+	check_asset_type(asset, params)
+
+	# Check if resource is part of asset names to scan
+	include_list := lib.get_default(params, "assetNames", [])
+	is_included(include_list, asset.name)
+
 	binding := asset.iam_policy.bindings[_]
 	member := binding.members[_]
 	role := binding.role
 
-	glob.match(params.role, [], role)
+	glob.match(params.role, ["/"], role)
 
-	mode := lib.get_default(params, "mode", "whitelist")
+	mode := lib.get_default(params, "mode", "allowlist")
 
-	matches_found = [m | m = params.members[_]; glob.match(m, [], member)]
+	matches_found = [m | m = config_pattern(params.members[_]); glob.match(m, [], member)]
 	target_match_count(mode, desired_count)
 	count(matches_found) != desired_count
 
@@ -53,9 +59,37 @@ deny[{
 
 # Determine the overlap between matches under test and constraint
 target_match_count(mode) = 0 {
-	mode == "blacklist"
+	mode == "denylist"
 }
 
 target_match_count(mode) = 1 {
-	mode == "whitelist"
+	mode == "allowlist"
+}
+
+check_asset_type(asset, params) {
+	lib.has_field(params, "assetType")
+	params.assetType == asset.asset_type
+}
+
+check_asset_type(asset, params) {
+	lib.has_field(params, "assetType") == false
+}
+
+is_included(include_list, asset_name) {
+	include_list != []
+	glob.match(include_list[_], ["/"], asset_name)
+}
+
+is_included(include_list, asset_name) {
+	include_list == []
+}
+
+# If the member in constraint is written as a single "*", turn it into super
+# glob "**". Otherwise, we won't be able to match everything.
+config_pattern(old_pattern) = "**" {
+	old_pattern == "*"
+}
+
+config_pattern(old_pattern) = old_pattern {
+	old_pattern != "*"
 }

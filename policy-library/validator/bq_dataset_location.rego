@@ -33,7 +33,7 @@ deny[{
 	asset.asset_type == "bigquery.googleapis.com/Dataset"
 
 	# Check if resource is in exempt list
-	exempt_list := params.exemptions
+	exempt_list := lib.get_default(params, "exemptions", [])
 	matches := {asset.name} & cast_set(exempt_list)
 	count(matches) == 0
 
@@ -45,7 +45,10 @@ deny[{
 	count(location_matches) == desired_count
 
 	message := sprintf("%v is in a disallowed location.", [asset.name])
-	metadata := {"location": asset_location}
+	metadata := {
+		"location": asset_location,
+		"resource": asset.name,
+	}
 }
 
 #################
