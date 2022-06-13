@@ -13,16 +13,15 @@
 # limitations under the License.
 #
 apiVersion: constraints.gatekeeper.sh/v1alpha1
-kind: GCPGCPResourceLabelsV1ConstraintV1
+kind: GCPEnforceLabelConstraintV1
 metadata:
   name: enforce_labels
 spec:
   severity: high
   match:
-    gcp:
-      target: ["organization/*"]
-  parameters: 
-    mandatory_labels: 
+    target: ["organizations/**"]
+  parameters:
+    mandatory_labels:
       - "label1": "^label1-value$"
       - "label2": "^label2-value.*$"
     resource_types_to_scan:
@@ -32,7 +31,11 @@ spec:
       - "compute.googleapis.com/Image"
       - "compute.googleapis.com/Disk"
       - "compute.googleapis.com/Snapshot"
-      - "google.bigtable.Instance"
+      - "bigtableadmin.googleapis.com/Instance"
       - "sqladmin.googleapis.com/Instance"
       - "dataproc.googleapis.com/Job"
       - "dataproc.googleapis.com/Cluster"
+      - "container.googleapis.com/Cluster"
+      - "bigquery.googleapis.com/Dataset"
+      - "bigquery.googleapis.com/Table"
+      - "spanner.googleapis.com/Instance"

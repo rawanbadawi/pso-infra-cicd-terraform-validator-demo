@@ -1,3 +1,25 @@
 steps:
-- name: 'gcr.io/config-validator/make'
+- name: 'gcr.io/config-validator/rego-v0.15.0'
   args: ['test']
+  waitFor: ['-']
+- name: 'gcr.io/config-validator/rego-v0.16.0'
+  args: ['test']
+  waitFor: ['-']
+- name: 'gcr.io/config-validator/rego-v0.24.0'
+  args: ['test']
+  waitFor: ['-']
+- name: 'gcr.io/config-validator/rego-v0.29.3'
+  args: ['test']
+  waitFor: ['-']
+- name: 'gcr.io/config-validator/rego-v0.15.0'
+  args: ['check_sample_files']
+  waitFor: ['-']
+- name: 'gcr.io/config-validator/rego-v0.15.0'
+  args: ['check_format']
+  waitFor: ['-']
+- name: 'gcr.io/config-validator/rego-v0.15.0'
+  args: ['check_build']
+  waitFor: ['-']
+- name: 'gcr.io/config-validator/policy-tool:commit-8bad818'
+  args: ['lint', '--policies', './policies', '--policies', './samples', '--libs', './lib']
+  waitFor: ['-']

@@ -1,5 +1,5 @@
 #
-# Copyright 2018 Google LLC
+# Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 
 package templates.gcp.GCPStorageBucketWorldReadableConstraintV1
 
+import data.validator.gcp.lib as lib
+
 deny[{
 	"msg": message,
 	"details": metadata,
@@ -24,6 +26,9 @@ deny[{
 	asset := input.asset
 	asset.asset_type == "storage.googleapis.com/Bucket"
 
+	# Check if resource is in exempt list
+	check_for_exemptions(asset.name, constraint)
+
 	world_readable_checks := [
 		asset.iam_policy.bindings[_].members[_] == "allUsers",
 		asset.iam_policy.bindings[_].members[_] == "allAuthenticatedUsers",
@@ -31,6 +36,21 @@ deny[{
 
 	world_readable_checks[_] == true
 
-	message := sprintf("%v is publicly accessable", [asset.name])
+	message := sprintf("%v is publicly accessible", [asset.name])
 	metadata := {"resource": asset.name}
+}
+
+###########################
+# Rule Utilities
+###########################
+
+check_for_exemptions(asset_name, constraint) {
+	lib.get_constraint_params(constraint, params)
+	exempt_list := params.exemptions
+	matches := {asset_name} & cast_set(exempt_list)
+	count(matches) == 0
+}
+
+check_for_exemptions(asset_name, constraint) {
+	lib.has_field(constraint.spec.parameters, "exemptions") == false
 }

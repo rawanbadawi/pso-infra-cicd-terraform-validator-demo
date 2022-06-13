@@ -8,16 +8,11 @@
 * [How to set up constraints with Policy Library](#how-to-set-up-constraints-with-policy-library)
   * [Get started with the Policy Library repository](#get-started-with-the-policy-library-repository)
   * [Instantiate constraints](#instantiate-constraints)
-* [How to use Terraform Validator](#how-to-use-terraform-validator)
-  * [Install Terraform Validator](#install-terraform-validator)
-  * [For local development environments](#for-local-development-environments)
-  * [For Production Environments](#for-production-environments)
-* [How to Use Forseti Config Validator](#how-to-use-forseti-config-validator)
-  * [Install Forseti](#install-forseti)
-  * [Copy over policy library repository](#copy-over-policy-library-repository)
-  * [How to change the run frequency of Forseti](#how-to-change-the-run-frequency-of-forseti)
-  * [How to handle scaling for large resource sets](#how-to-handle-scaling-for-large-resource-sets)
-  * [How to connect violation results with Cloud Security Command Center (CSCC)](#how-to-connect-violation-results-with-cloud-security-command-center-cscc)
+* [How to validate policies](#how-to-validate-policies)
+* [How to Use Config Validator with Forseti](#how-to-use-config-validator-with-Forseti)
+  * [Deploy Forseti](#deploy-forseti)
+  * [Policy Library Sync from Git Repository](https://forsetisecurity.org/docs/latest/configure/config-validator/policy-library-sync-from-git-repo.html)
+  * [Policy Library Sync from GCS](https://forsetisecurity.org/docs/latest/configure/config-validator/policy-library-sync-from-gcs.html)
 * [End to end workflow with sample constraint](#end-to-end-workflow-with-sample-constraint)
 * [Contact Info](#contact-info)
 
@@ -56,8 +51,8 @@ details, [check out Terraform Validator](#how-to-use-terraform-validator).
 
 Frequently scan the platform for constraint violations and send notifications
 when a violation is found. The monitoring logic that Config Validator uses will
-be built into a number of monitoring tools. For details,
-[check out Forseti Validator](#how-to-use-forseti-config-validator).
+be built into a number of monitoring tools. For example,
+[check out How to Use Config Validator with Forseti](#how-to-use-config-validator-with-forseti).
 
 The following guide will walk you through initial setup steps and instructions
 on how to use Config Validator. By the end, you will have a proof-of-concept to
@@ -80,28 +75,64 @@ The Policy Library repository contains the following directories:
     files.
 
 Google provides a sample repository with a set of pre-defined constraint
-templates. You will first clone the repository:
+templates. You can duplicate this repository into a private repository. First
+you should create a new **private** git repository. For example, if you use
+GitHub then you can use the [GitHub UI](https://github.com/new). Then follow the
+steps below to get everything setup.
+
+_Note: If you are planning on using the
+[Policy Library Sync feature of Forseti](#policy-library-sync),
+then you should also add a read-only user to the private repository which will
+be used by Forseti._
+
+This policy library can also be made public, but it is not recommended. By
+making your policy library public, it would be allowing others to see what you
+are and __ARE NOT__ scanning for.
+
+#### Duplicate Policy Library Repository
+
+To run the following commands, you will need to configure git to connect
+securely. It is recommended to connect with SSH. [Here is a helpful resource](https://help.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh) for learning about how
+this works, including steps to set this up for GitHub repositories; other
+providers offer this feature as well.
 
 ```
-git clone https://github.com/forseti-security/policy-library.git
+export GIT_REPO_ADDR="git@github.com:${YOUR_GITHUB_USERNAME}/policy-library.git"
+git clone --bare https://github.com/GoogleCloudPlatform/policy-library.git
+cd policy-library.git
+git push --mirror ${GIT_REPO_ADDR}
+cd ..
+rm -rf policy-library.git
+git clone ${GIT_REPO_ADDR}
 ```
+
+#### Setup Constraints
 
 Then you need to examine the available constraint templates inside the
 `templates` directory. Pick the constraint templates that you wish to use,
-create constraint YAML files correspondings to those templates, and place them
+create constraint YAML files corresponding to those templates, and place them
 under `policies/constraints`. Commit the newly created constraint files to
-**your** Git repository. For example, assuming you have created Git repository
+**your** Git repository. For example, assuming you have created a Git repository
 named "policy-library" under your GitHub account, you can use the following
 commands to perform the initial commit:
 
 ```
-export GIT_REPO_ADDR="git@github.com:${YOUR_GITHUB_USERNAME}/policy-library.git"
 cd policy-library
 # Add new constraints...
-git add .
-git commit -m "Initial commit of policy library"
-git remote add policy-library "${GIT_REPO_ADDR}"
-git push -u policy-library master
+git add --all
+git commit -m "Initial commit of policy library constraints"
+git push -u origin master
+```
+
+#### Pull in latest changes from Public Repository
+
+Periodically you should pull any changes from the public repository, which might
+contain new templates and Rego files.
+
+```
+git remote add public https://github.com/GoogleCloudPlatform/policy-library.git
+git pull public master
+git push origin master
 ```
 
 ### Instantiate constraints
@@ -136,31 +167,31 @@ For example:
    </td>
   </tr>
   <tr>
-   <td>organization/*
+   <td>organizations/**
    </td>
    <td>All organizations
    </td>
   </tr>
   <tr>
-   <td>organization/123/*
+   <td>organizations/123/**
    </td>
    <td>Everything in organization 123
    </td>
   </tr>
   <tr>
-   <td>organization/123/folder/*
+   <td>organizations/123/folders/**
    </td>
    <td>Everything in organization 123 that is under a folder
    </td>
   </tr>
   <tr>
-   <td>organization/123/folder/456
+   <td>organizations/123/folders/456
    </td>
    <td>Everything in folder 456 in organization 123
    </td>
   </tr>
   <tr>
-   <td>organization/123/folder/456/project/789
+   <td>organizations/123/folders/456/projects/789
    </td>
    <td>Everything in project 789 in folder 456 in organization 123
    </td>
@@ -195,14 +226,14 @@ should contain a string named `mode` and a string array named
 
 ```
 parameters:
-  mode: whitelist
+  mode: allowlist
   instances:
     - //compute.googleapis.com/projects/test-project/zones/us-east1-b/instances/one
     - //compute.googleapis.com/projects/test-project/zones/us-east1-b/instances/two
 ```
 
 These parameters specify that two VM instances may have external IP addresses.
-The are exempt from the constraint since they are whitelisted.
+The are exempt from the constraint since they are allowlisted.
 
 Here is a complete example of a sample external IP address constraint file:
 
@@ -210,227 +241,48 @@ Here is a complete example of a sample external IP address constraint file:
 apiVersion: constraints.gatekeeper.sh/v1alpha1
 kind: GCPExternalIpAccessConstraintV1
 metadata:
-  name: forbid-external-ip-whitelist
+  name: forbid-external-ip-allowlist
 spec:
   severity: high
   match:
-    target: ["organization/*"]
+    target: ["organizations/**"]
   parameters:
-    mode: "whitelist"
+    mode: "allowlist"
     instances:
     - //compute.googleapis.com/projects/test-project/zones/us-east1-b/instances/one
     - //compute.googleapis.com/projects/test-project/zones/us-east1-b/instances/two
 ```
 
-## How to use Terraform Validator
+## How to validate policies
 
-### Install Terraform Validator
-
-The released binaries are available under the `gs://terraform-validator` Google
-Cloud Storage bucket for Linux, Windows, and Mac. They are organized by release
-date, for example:
-
-```
-$ gsutil ls -r gs://terraform-validator/releases
-...
-gs://terraform-validator/releases/2019-04-04/terraform-validator-darwin-amd64
-gs://terraform-validator/releases/2019-04-04/terraform-validator-linux-amd64
-gs://terraform-validator/releases/2019-04-04/terraform-validator-windows-amd64
-```
-
-To download the binary, you need to
-[install](https://cloud.google.com/storage/docs/gsutil_install#install) the
-`gsutil` tool first. The following command downloads the Linux version of
-Terraform Validator from 2019-04-04 release to your local directory:
-
-```
-gsutil cp gs://terraform-validator/releases/2019-04-04/terraform-validator-linux-amd64 .
-chmod 755 terraform-validator-linux-amd64
-```
-
-### For local development environments
-
-Currently only Terraform v0.11 is supported.
-These instructions assume you have forked a branch and is working locally.
-
-Generate a Terraform plan for the current environment by running:
-
-```
-terraform plan -out=tfplan.tfplan
-```
-
-To validate the Terraform plan based on the constraints specified under your
-local policy library repository, run:
-
-```
-terraform-validator-linux-amd64 validate tfplan.tfplan --policy-path=${POLICY_PATH}
-```
-
-The policy-path flag is set to the local clone of your Git repository that
-contains the constraints and templates. This is described in the
-["How to set up constraints with Policy Library"](#how-to-set-up-constraints-with-policy-library)
-section.
-
-Terraform Validator also accepts an optional --project flag which is set to the
-Terraform Google provider project. See the
-[provider docs](https://www.terraform.io/docs/providers/google/index.html) for
-more info. If it is not set, Terraform Validator will attempt to parse the
-provider project from the provider configuration.
-
-If violations are found, a list will be returned of the affected resources and a
-brief message about the violations:
-
-```
-Found Violations:
-
-Constraint iam_domain_restriction on resource //cloudresourcemanager.googleapis.com/projects/299388503561: IAM policy for //cloudresourcemanager.googleapis.com/projects/299388503561 contains member from unexpected domain: user:foo@example.com
-
-Constraint iam_domain_restriction on resource //cloudresourcemanager.googleapis.com/projects/299388503561: IAM policy for //cloudresourcemanager.googleapis.com/projects/299388503561 contains member from unexpected domain: group:bar@example.com
-```
-
-If all constraints are validated, the command will return "`No violations
-found`." You can then apply a plan locally on a development environment:
-
-```
-terraform apply
-```
-
-### For Production Environments
-
-These instructions assume that the developer has merged their local branch back
-with master. We want to make sure the master deployment into production is
-validated.
-
-In your continuous integration (CI) tool, you should install Terraform
-validator. Then you can add a step to any workflow which will validate a
-Terraform plan and reject it if violations are found. Terraform validator will
-return a `2` exit code if violations are found or `0` if no violations were
-found. Therefore, you should configure your CI to only proceed to the next step
-(for example, `terraform apply`) or merge if the validator exits successfully.
-
-## How to Use Forseti Config Validator
-
-### Install Forseti
-
-Follow the standard installation process. This guide assumes Terraform is used
-to install Forseti, and Forseti can be installed via its own
-[installer](https://forsetisecurity.org/docs/v2.2/setup/install.html) or
-[Cloud Foundation Toolkit](https://github.com/terraform-google-modules/terraform-google-forseti)
-as well.
-
-If you haven't already, the first step is to
-[Install](https://learn.hashicorp.com/terraform/getting-started/install.html)
-Terraform. Then use the
-[terraform-google-forseti](https://github.com/terraform-google-modules/terraform-google-forseti)
-module to install Forseti. Here is a sample main.tf file modeled mostly from the
-"[simple example](https://github.com/terraform-google-modules/terraform-google-forseti/tree/master/examples/simple_example)":
-
-```
-module "forseti" {
-      source  = "terraform-google-modules/forseti/google"
-      version = "~> 1.4"
+Follow the [instructions](https://cloud.google.com/docs/terraform/policy-validation/validate-policies)
+to validate policies in your local or production environments.
 
 
-      domain             = "yourdomain.com"
-      project_id         = "your-forseti-project-id-here"
-      org_id             = "your-org-id-here"
-      …
-      config_validator_enabled = true
-    }
-```
+## How to Use Config Validator with Forseti
 
-The one important additions is the `config_validator_enabled` field. It is not
-enabled by default; therefore you need to explicitly enable it.
+### Deploy Forseti
 
-### Copy over policy library repository
+Follow the [documentation on the Forseti Security website](https://forsetisecurity.org/docs/latest/setup/install/index.html)
+to deploy Forseti on GCE. As part of the Terraform configuration, you will need to enable
+Config Validator. Follow the [documentation on the Forseti Security website](https://forsetisecurity.org/docs/latest/configure/config-validator/index.html)
+to set up Config Validator.
 
-Your policy library repository specifies the constraints to be enforced. In
-order for Forseti server to access it, you need to copy it over to Forseti
-server's GCS bucket. Assuming you already have a local copy of your policy
-library repository:
+#### Provide Policies to Forseti Server
 
-```
-export FORSETI_BUCKET=`terraform output -module=forseti forseti-server-storage-bucket`
-export POLICY_LIBRARY_PATH=path/to/local/policy-library
-gsutil -m rsync -d -r ${POLICY_LIBRARY_PATH}/policies gs://${FORSETI_BUCKET}/policy-library/policies
-gsutil -m rsync -d -r ${POLICY_LIBRARY_PATH}/lib gs://${FORSETI_BUCKET}/policy-library/lib
-```
+The recommended practice is to store the Policy Library in a VCS such as GitHub
+or other git repository. This supports the idea of policy as code and requires
+work to setup the repository and connect it with Forseti. Once the repository is
+setup, then Forseti will automatically
+[sync](https://github.com/kubernetes/git-sync) policy updates to the Forseti
+Server to be used by future scans.
 
-Example result: ![GCS Bucket Content](user_guide_bucket.png)
+The default behavior of Forseti is to sync the Policy Library from the Forseti
+Server GCS bucket. This requires little setup, but involves manual work to
+create the folder and copy the policies to GCS.
 
-After this is done, Forseti will pick up the new policy library content in the
-next scanner run.
-
-### How to change the run frequency of Forseti
-
-The Forseti inventory and scanning processes is scheduled to run by a cron job.
-To update the run frequency of this cron job, you need to understand
-[the time format of a cron job](https://crontab.guru/). After you have your
-desired time format, you can update the run frequency by following the steps
-below:
-
-In main.tf, under module "forseti" include **forseti_run_frequency** and set the
-value to your desired time format. For example, <code><em>"0 */2 * *
-*"</em></code>.
-
-```
-   module "forseti" {
-      ...
-      forseti_run_frequency = "0 */2 * * *"
-    }
-```
-
-Run _terraform plan_ command to see the change and _terraform apply_ command to
-apply the change.
-
-### How to handle scaling for large resource sets
-
-If you want to scale for large resource sets, you need to add more RAM to your
-server**.** Upgrading the Forseti server VM to n1-standard-4 (15GB of RAM)
-should be able to handle most use cases. Depending on the state and size of your
-data, this may trigger a large number of violations. Currently GRPC has a
-payload size limitation of 4MB. If a scanner run results in > 4MB of violation
-data to be generated, that will result in an error.
-
-In the future, we will consider the following changes:
-
-*   Use streaming GRPC or paging the violation results.
-*   Split the dataset into multiple chunks and process them separately.
-
-### How to connect violation results with Cloud Security Command Center (CSCC)
-
-Forseti has a plugin with Cloud Security Command Center (CSCC) which allows you
-to receive PubSubs with CSCC. By subscribing to the PubSub feed, you have
-control of remediating manually or programmatically with Cloud Functions.
-
-To connect to CSCC, you need the following roles:
-
-*   Organization Admin
-*   Security Center Admin
-*   Service Account Admin
-
-Follow step 1-4 listed
-[here](https://forsetisecurity.org/docs/latest/configure/notifier/index.html#setup)
-to set CSCC up for Forseti.
-
-Once you have CSCC set up, you can navigate to the CSCC settings page from the
-Google Cloud Platform (GCP) UI. For example:
-![CSCC Integration](user_guide_cscc.png)
-
-In **main.tf**, under module "forseti", include _cscc_source_id_ and
-_cscc_violations_enabled_. Set _cscc_source_id_ to the source ID generated by
-CSCC for Forseti, and _cscc_violations_enabled** **_to** _true_**.
-
-```
-   module "forseti" {
-      …..
-      cscc_source_id = "YOUR_CSCC_SOURCE_ID_FOR_FORSETI"
-      cscc_violations_enabled = true
-    }
-```
-
-Run _terraform plan_ command to see the change and _terraform apply_ command to
-apply the change.
+Follow the documentation on the Forseti Security website to sync policies
+from the [GCS to the Forseti server](https://forsetisecurity.org/docs/latest/configure/config-validator/policy-library-sync-from-gcs.html), and from [Git Repository to the Forseti server](https://forsetisecurity.org/docs/latest/configure/config-validator/policy-library-sync-from-git-repo.html).
 
 ## End to end workflow with sample constraint
 
@@ -438,14 +290,14 @@ In this section, you will apply a constraint that enforces IAM policy member
 domain restriction using [Cloud Shell](https://cloud.google.com/shell/).
 
 First click on this
-[link](https://console.cloud.google.com/cloudshell/open?cloudshell_image=gcr.io/graphite-cloud-shell-images/terraform:latest&cloudshell_git_repo=https://github.com/forseti-security/policy-library.git)
+[link](https://console.cloud.google.com/cloudshell/open?cloudshell_image=gcr.io/graphite-cloud-shell-images/terraform:latest&cloudshell_git_repo=https://github.com/GoogleCloudPlatform/policy-library.git)
 to open a new Cloud Shell session. The Cloud Shell session has Terraform
 pre-installed and the Policy Library repository cloned. Once you have the
 session open, the next step is to copy over the sample IAM domain restriction
 constraint:
 
 ```
-cp policy-library/samples/iam_service_accounts_only.yaml policy-library/policies/constraints
+cp samples/iam_service_accounts_only.yaml policies/constraints
 ```
 
 Let's take a look at this constraint:
@@ -458,7 +310,7 @@ metadata:
 spec:
   severity: high
   match:
-    target: ["organization/*"]
+    target: ["organizations/**"]
   parameters:
     domains:
       - gserviceaccount.com
@@ -501,21 +353,20 @@ and email address. Then initialize Terraform and generate a Terraform plan:
 ```
 terraform init
 terraform plan -out=test.tfplan
+terraform show -json ./test.tfplan > ./tfplan.json
 ```
 
 Since your email address is in the IAM policy binding, the plan should result in
 a violation. Let's try this out:
 
 ```
-gsutil cp gs://terraform-validator/releases/2019-03-28/terraform-validator-linux-amd64 .
-chmod 755 terraform-validator-linux-amd64
-./terraform-validator-linux-amd64 validate test.tfplan --policy-path=policy-library
+gcloud beta terraform vet tfplan.json --policy-library=policy-library
 ```
 
 The Terraform validator should return a violation. As a test, you can relax the
 constraint to make the violation go away. Edit the
 `policy-library/policies/constraints/iam_service_accounts_only.yaml` file and
-append your email domain to the domains whitelist:
+append your email domain to the domains allowlist:
 
 ```
 apiVersion: constraints.gatekeeper.sh/v1alpha1
@@ -525,7 +376,7 @@ metadata:
 spec:
   severity: high
   match:
-    target: ["organization/*"]
+    target: ["organizations/**"]
   parameters:
     domains:
       - gserviceaccount.com
@@ -536,7 +387,8 @@ Then run Terraform plan and validate the output again:
 
 ```
 terraform plan -out=test.tfplan
-./terraform-validator-linux-amd64 validate test.tfplan --policy-path=policy-library
+terraform show -json ./test.tfplan > ./tfplan.json
+gcloud beta terraform vet tfplan.json --policy-library=policy-library
 ```
 
 The command above should result in no violations found.

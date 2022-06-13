@@ -18,10 +18,11 @@ metadata:
   name: enable_gke_stackdriver_monitoring
   annotations:
     description: Ensure stackdriver monitoring is enabled on a GKE cluster
-    benchmark: CIS11_7.02
+    # This constraint has not been validated by the formal CIS certification process.
+    bundles.validator.forsetisecurity.org/cis-v1.0: 7.02
 spec:
   severity: high
   match:
-    gcp:
-      target: ["organization/*"]
+    target: # {"$ref":"#/definitions/io.k8s.cli.setters.target"}
+    - "organizations/**"
   parameters: {}
