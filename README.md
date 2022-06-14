@@ -5,10 +5,10 @@ This repository shows how to use terraform validator when deploying infrastructu
 ## Pre-requisites
 * A Google Cloud Project
 * gcloud cli installed
-* The following apis enabled in the GCP project: cloudbuild, containerregistry, and artifactregistry
+* The following apis enabled in the GCP project: cloudbuild, containerregistry, and artifactregistry and cloud run
 
 ```bash
-gcloud services enable cloudbuild.googleapis.com containerregistry.googleapis.com artifactregistry.googleapis.com 
+gcloud services enable cloudbuild.googleapis.com containerregistry.googleapis.com artifactregistry.googleapis.com run.googleapis.com
 ```
 
 * fork the following repository: https://github.com/rawanbadawi/pso-infra-cicd-terraform-validator-demo
@@ -67,11 +67,16 @@ gsutil mb -c standard -l us-central1 gs://<bucket-name>
 ``` 
 git checkout -b test-iac
 ```
-1. Edit `TFSTATE_BUCKET` in `deployments/app1/backend.tf` file to the bucket name created above
+2. Edit `TFSTATE_BUCKET` in `deployments/app1/backend.tf` file to the bucket name created above
 ``` bash
-sed -i 's/TFSTATE_BUCKET/rbadawi-onprem/g' deployments/app1/backend.tf
+sed -i 's/TFSTATE_BUCKET/<bucket_name>/g' deployments/app1/backend.tf
 ```
-1. Change the `image` value to the container image you wish to deploy to in `deployments/app1/terraform.tfvars` 
+On OS X/MacOS, you might need to add two quotation marks ("") after sed -i, as follows:
+``` bash
+sed -i "" 's/TFSTATE_BUCKET/<bucket_name>/g' deployments/app1/backend.tf
+```
+
+3. Change the `image` value to the container image you wish to deploy to in `deployments/app1/terraform.tfvars` 
 1. Commit the changes and create a pull request
 ``` bash
 git add --all
@@ -81,9 +86,15 @@ git push origin test-iac
 1. Verify the build fails as the cloudrun api is not an approved API as per constraints 
 1. Update the constraint file:  
 ``` bash
-echo '    - "run.googleapis.com"' >> policy-library/policies/constraints/serviceusage_allow_basic_apis.yaml
+sed -i 's/- run.googleapis.com/Service//g' policy-library/policies/constraints/allowed_resource_types.yaml
 
 ```
-1. commit the changes to the branch
+On OS X/MacOS, you might need to add two quotation marks ("") after sed -i, as follows:
+ 
+``` bash
+sed -i "" 's/- run.googleapis.com/Service//g' policy-library/policies/constraints/allowed_resource_types.yaml
+```
+
+5. Commit the changes to the branch
 1. Verify the build passes 
 1. Merge to main the cloud build should run and create the infrastructure
