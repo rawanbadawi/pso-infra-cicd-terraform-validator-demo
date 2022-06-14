@@ -6,6 +6,7 @@ steps:
   - init
 - name: hashicorp/terraform:1.0.0
   dir: deployments/app1
+  entrypoint: 'sh'
   args:
   - '-c'
   - 'terraform apply -auto-approve -var="project_id=$PROJECT_ID"'
