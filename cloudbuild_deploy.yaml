@@ -9,3 +9,5 @@ steps:
   args:
   - apply
   - -auto-approve
+  - -var='project_id=$PROJECT_ID'
+
