@@ -22,7 +22,7 @@ steps:
   entrypoint: 'sh'
   args: 
   - '-c'
-  - 'terraform plan -out=terraform.plan'
+  - 'terraform plan -out=terraform.plan -var="project_id=$PROJECT_ID"'
   dir: deployments/app1
 # [END tf-plan]
 
