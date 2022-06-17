@@ -1,5 +1,5 @@
 
-# cloudrun
+# cloudrun scope creep
 
 resource "google_cloud_run_service" "default" {
   name     = var.app_name
