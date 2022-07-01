@@ -9,7 +9,7 @@ This repository shows how to use terraform validator when deploying infrastructu
 * The following apis enabled in the GCP project: cloudbuild, containerregistry, and artifactregistry and cloud run
 
 ```bash
-gcloud services enable cloudbuild.googleapis.com containerregistry.googleapis.com artifactregistry.googleapis.com run.googleapis.com
+gcloud services enable cloudbuild.googleapis.com containerregistry.googleapis.com artifactregistry.googleapis.com run.googleapis.com cloudresourcemanager.googleapis.com
 ```
 
 * fork the following repository: https://github.com/rawanbadawi/pso-infra-cicd-terraform-validator-demo
