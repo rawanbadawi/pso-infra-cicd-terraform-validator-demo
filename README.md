@@ -81,7 +81,7 @@ sed -i "" 's/TFSTATE_BUCKET/<bucket_name>/g' deployments/app1/backend.tf
 ```
 
 3. Change the `image` value to the container image you wish to deploy to in `deployments/app1/terraform.tfvars` 
-1. Commit the changes and create a pull request
+1. Commit the changes and create a [pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request)
 ``` bash
 git add --all
 git commit -m"testing IaC devsecops pipelines"
