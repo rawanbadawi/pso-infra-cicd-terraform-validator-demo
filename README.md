@@ -37,8 +37,7 @@ gcloud beta builds triggers create github \
     --repo-name=pso-infra-cicd-terraform-validator-demo \
     --repo-owner=REPOSITORYOWNER \
     --branch-pattern=^main$ \
-    --build-config=cloudbuild_deploy.yaml \
-    --comment-control=COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY
+    --build-config=cloudbuild_deploy.yaml 
 ```
 * Create an artifact repository for the terraform vet image:
 
