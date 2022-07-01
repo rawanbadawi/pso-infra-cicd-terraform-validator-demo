@@ -11,6 +11,16 @@ This repository shows how to use terraform validator when deploying infrastructu
 ```bash
 gcloud services enable cloudbuild.googleapis.com containerregistry.googleapis.com artifactregistry.googleapis.com run.googleapis.com cloudresourcemanager.googleapis.com
 ```
+* Grant the cloudbuild service account access to deploy cloud run:
+```bash
+gcloud projects add-iam-policy-binding <project_id>  \
+    --member serviceAccount:<project_number>@cloudbuild.gserviceaccount.com \
+    --role "roles/run.admin" 
+    
+gcloud projects add-iam-policy-binding <project_id> \
+    --member serviceAccount:<project_number>@cloudbuild.gserviceaccount.com \
+    --role "roles/iam.serviceAccountUser" 
+```
 
 * fork the following repository: https://github.com/rawanbadawi/pso-infra-cicd-terraform-validator-demo
 
