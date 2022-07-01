@@ -5,6 +5,7 @@ This repository shows how to use terraform validator when deploying infrastructu
 ## Pre-requisites
 * A Google Cloud Project
 * gcloud cli installed
+* [Billing is enabled](https://cloud.google.com/billing/docs/how-to/modify-project#confirm_billing_is_enabled_on_a_project) on the project 
 * The following apis enabled in the GCP project: cloudbuild, containerregistry, and artifactregistry and cloud run
 
 ```bash
@@ -54,11 +55,15 @@ cd terraform-vet/
 gcloud builds submit --region=us-central1 --tag us-central1-docker.pkg.dev/<project-id>/terraform-vet/terraform-vet .
 cd ..
 ```
-* create a gcs bucket to host the terraform state file replace <bucket-name> with a unique bucket name:
+* Create a gcs bucket to host the terraform state file replace <bucket-name> with a unique bucket name:
 
 ``` bash
 gsutil mb -c standard -l us-central1 gs://<bucket-name>
 
+```
+* Enable versioning on the bucket
+```bash
+gsutil versioning set on gs://<bucket-name>
 ```
 
 ## Usage
@@ -86,13 +91,13 @@ git push origin test-iac
 1. Verify the build fails as the cloudrun api is not an approved API as per constraints 
 1. Update the constraint file:  
 ``` bash
-sed -i 's/- run.googleapis.com/Service//g' policy-library/policies/constraints/allowed_resource_types.yaml
+sed -i 's#- run.googleapis.com/Service##g' policy-library/policies/constraints/allowed_resource_types.yaml
 
 ```
 On OS X/MacOS, you might need to add two quotation marks ("") after sed -i, as follows:
  
 ``` bash
-sed -i "" 's/- run.googleapis.com/Service//g' policy-library/policies/constraints/allowed_resource_types.yaml
+sed -i "" 's#- run.googleapis.com/Service##g' policy-library/policies/constraints/allowed_resource_types.yaml
 ```
 
 5. Commit the changes to the branch
